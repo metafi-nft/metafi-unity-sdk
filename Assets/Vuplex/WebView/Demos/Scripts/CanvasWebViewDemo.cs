@@ -36,7 +36,7 @@ namespace Vuplex.WebView.Demos {
             // Get a reference to the CanvasWebViewPrefab.
             // https://support.vuplex.com/articles/how-to-reference-a-webview
             _canvasWebViewPrefab = GameObject.Find("CanvasWebViewPrefab").GetComponent<CanvasWebViewPrefab>();
-            _canvasWebViewPrefab.Resolution = 1f;
+            _canvasWebViewPrefab.Resolution = 0.7f;
 
             // Wait for the prefab to initialize because its WebView property is null until then.
             // https://developer.vuplex.com/webview/WebViewPrefab#WaitUntilInitialized
