@@ -3,10 +3,11 @@ using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
 using Newtonsoft.Json;
+using System.Net.Http;
 
 public class ButtonBehaviour : MonoBehaviour
 {
-    string userIdentifier;
+    private static readonly HttpClient client = new HttpClient();
 
     public Button hideButton;
     public Button showButton;
@@ -16,8 +17,7 @@ public class ButtonBehaviour : MonoBehaviour
     public Button retrieveUserButton;
     public Button transferTokensButton;
     
-    GameObject webview;
-
+    GameObject _webview;
     Vuplex.WebView.CanvasWebViewPrefab _canvasWebViewPrefab;
 
     void OnEnable() {
@@ -28,36 +28,73 @@ public class ButtonBehaviour : MonoBehaviour
         disconnectButton.onClick.AddListener(disconnect);
         retrieveUserButton.onClick.AddListener(retrieveUser);
         transferTokensButton.onClick.AddListener(transferTokens);
-
-        webview = GameObject.Find("CanvasWebViewPrefab");
-        initializeProvider();
+        _webview = GameObject.Find("CanvasWebViewPrefab");
     }
 
     async void Start() {
         Debug.Log("Setting _canvasWebViewPrefab");
-        _canvasWebViewPrefab = GameObject.Find("CanvasWebViewPrefab").GetComponent<Vuplex.WebView.CanvasWebViewPrefab>();
-        // Wait for the WebViewPrefab to initialize, because the WebViewPrefab.WebView property
-        // is null until the prefab has initialized.
+
+        _canvasWebViewPrefab = _webview.GetComponent<Vuplex.WebView.CanvasWebViewPrefab>();
         await _canvasWebViewPrefab.WaitUntilInitialized();
-        // Send a message after the page has loaded.
         await _canvasWebViewPrefab.WebView.WaitForNextPageLoadToFinish();
+        initializeProvider();
+        _canvasWebViewPrefab.WebView.MessageEmitted += _handleWebViewMessageEmitted;
+    }
+
+    void _handleWebViewMessageEmitted(object sender, Vuplex.WebView.EventArgs<string> eventArgs) {
+        Debug.Log("_handleWebViewMessageEmitted");
+        Debug.Log("JSON received: " + sender + ", " + eventArgs.Value);
+
+        dynamic eventObj = JsonConvert.DeserializeObject<dynamic>(eventArgs.Value);
+        
+        int statusCode = eventObj.statusCode;
+        dynamic data = eventObj.data;
+        string eventType = eventObj.eventType;
+        dynamic eventMetadata = eventObj.eventMetadata;
+        string error = eventObj.error;
+
+        Debug.Log("statusCode, data, error, eventType, eventMetadata = " +  statusCode + " " + data + " " + error + " " + eventType + " " + eventMetadata);
+
+        switch(eventType) {
+            case "modalStatus":
+                if (data.open == false) {
+                    _compressWebview();
+                }
+                break;
+            default:
+                break;
+        }
+    }
+
+    void _expandWebview() {
+        Debug.Log("_expandWebview");
+        _webview.transform.localScale = new Vector3(1, 1, 1);
+    }
+
+    void _compressWebview() {
+        Debug.Log("_compressWebview");
+        _webview.transform.localScale = new Vector3(0, 0, 0);
     }
 
     void initializeProvider() {
         Debug.Log("initializeProvider");
+
+        invokeSDK("initialise", new {
+            apiKey = "test-6371f967cea553bdd5ae3d5e-mrQsJvLklpohUWuN",
+            secretKey = "KkEWQkndudnJmipaSpIfD1rO",
+            supportedChains = new[] {"eth", "goerli", "mumbai", "matic"},
+            options = new {
+                logo = "./logo.png",
+                theme = new {}
+            },
+        });
     }
 
-    async void invokeSDK(string _function, string _payload) {
-        string json = JsonConvert.SerializeObject(new 
-        {
-            type = "sdkInvocation",
-            message = new
-            { 
-                function = _function,
-                payload = _payload,
-            }
-        } 
-        );
+    async void invokeSDK(string _type, System.Object _payload) {
+        string json = JsonConvert.SerializeObject(new {
+            type = _type,
+            props = _payload
+        });
 
         Debug.Log("json: " + json);
 
@@ -67,25 +104,43 @@ public class ButtonBehaviour : MonoBehaviour
 
     public void hide(){
         Debug.Log("hide");
-        // webview.GetComponent<Renderer>().enabled = true;
-        // webview.SetActive(false);
+        // _webview.GetComponent<Renderer>().enabled = true;
+        // _webview.SetActive(false);
     }
 
     public void show(){
         Debug.Log("show");
-        // webview.GetComponent<Renderer>().enabled = true;
-        // webview.SetActive(true);
-        invokeSDK("ShowWallet", "");
+        // _webview.GetComponent<Renderer>().enabled = true;
+        _expandWebview();
+        invokeSDK("method", new {
+            methodName = "ShowWallet",
+            methodParams = new string[] {},
+            methodOutput = ""
+        });
     }
 
     public async void login(){
         Debug.Log("login");
-        invokeSDK("Login", "");
+
+        var response = await client.PostAsync("https://vpa58nk2e9.execute-api.us-east-1.amazonaws.com/dev/testMerchantAuthenticate", null);
+        var responseString = await response.Content.ReadAsStringAsync();
+        
+        dynamic responseObj = JsonConvert.DeserializeObject<dynamic>(responseString);
+
+        string userIdentifier = responseObj.userIdentifier;
+        string jwtToken = responseObj.jwtToken;
+
+        Debug.Log("response from login: " + userIdentifier + " " + jwtToken);
+
+        invokeSDK("method", new {
+            methodName = "Login",
+            methodParams = new [] { userIdentifier, jwtToken },
+            methodOutput = "callback"
+        });
     }
     
     public void checkout(){
         Debug.Log("checkout");
-    
     }
     
     public void disconnect(){
@@ -100,6 +155,5 @@ public class ButtonBehaviour : MonoBehaviour
     
     public void transferTokens(){
         Debug.Log("transferTokens");
-    
     }
 }
