@@ -4,6 +4,7 @@ using UnityEngine;
 using UnityEngine.UI;
 using Newtonsoft.Json;
 using System.Net.Http;
+using System.Threading.Tasks;
 
 namespace Metafi.Unity {
     public class ButtonBehaviour : MonoBehaviour
@@ -20,6 +21,8 @@ namespace Metafi.Unity {
 
         GameObject _webview;
         Vuplex.WebView.CanvasWebViewPrefab _canvasWebViewPrefab;
+        Dictionary<string, TaskCompletionSource<dynamic>> promises = new Dictionary<string, TaskCompletionSource<dynamic>>();
+
 
         void OnEnable() {
             hideButton.onClick.AddListener(hide);
@@ -34,7 +37,7 @@ namespace Metafi.Unity {
 
         async void Start() {
             Debug.Log("Setting _canvasWebViewPrefab");
-
+            _compressWebview();
             _canvasWebViewPrefab = _webview.GetComponent<Vuplex.WebView.CanvasWebViewPrefab>();
             await _canvasWebViewPrefab.WaitUntilInitialized();
             await _canvasWebViewPrefab.WebView.WaitForNextPageLoadToFinish();
@@ -60,8 +63,17 @@ namespace Metafi.Unity {
                 case "modalStatus":
                     if (data.open == false) {
                         _compressWebview();
+                    } else if (data.open == true) {
+                        _expandWebview();
                     }
                     break;
+                case "returnResult":
+                    string strUuid = eventMetadata.uuid.ToString();
+                    if (promises.ContainsKey(strUuid)) {
+                        promises[strUuid].TrySetResult(data);
+                    }
+                    break;
+
                 default:
                     break;
             }
@@ -94,13 +106,21 @@ namespace Metafi.Unity {
             });
         }
 
-        async void invokeSDK(string _type, System.Object _payload) {
+        void invokeSDK(string _type, System.Object _payload, TaskCompletionSource<dynamic> promise = null) {
+            string _uuid = System.Guid.NewGuid().ToString();
             string json = JsonConvert.SerializeObject(new {
                 type = _type,
-                props = _payload
+                props = _payload,
+                uuid = _uuid
             });
 
             Debug.Log("json: " + json);
+
+            if (promise != null) {
+                Debug.Log("Appending promise to dict");
+                promises[_uuid] = promise;
+                Debug.Log("Appended = " + promises[_uuid]);
+            }
 
             _canvasWebViewPrefab.WebView.PostMessage(json);
             // _canvasWebViewPrefab.WebView.PostMessage("hiii");
@@ -115,7 +135,7 @@ namespace Metafi.Unity {
         public void show(){
             Debug.Log("show");
             // _webview.GetComponent<Renderer>().enabled = true;
-            _expandWebview();
+            // _expandWebview();
             invokeSDK("method", new {
                 methodName = "ShowWallet",
                 methodParams = new string[] {},
@@ -149,16 +169,23 @@ namespace Metafi.Unity {
         
         public void disconnect(){
             Debug.Log("disconnect");
-        
+            invokeSDK("method", new {
+                methodName = "Disconnect",
+                methodParams = new string[] { },
+                methodOutput = ""
+            });
         }
         
-        public void retrieveUser(){
+        public async void retrieveUser(){
             Debug.Log("retrieveUser");
-            // invokeSDK("method", new {
-            //     methodName = "RetrieveUser",
-            //     methodParams = new [] { },
-            //     methodOutput = "callback"
-            // });
+            var promise = new TaskCompletionSource<dynamic>();
+            invokeSDK("method", new {
+                methodName = "RetrieveUser",
+                methodParams = new string[] { },
+                methodOutput = "return"
+            }, promise);
+            var result = await promise.Task;
+            Debug.Log("result of promise is = " + result);
         }
         
         public void transferTokens(){
