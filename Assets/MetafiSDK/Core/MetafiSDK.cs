@@ -7,7 +7,7 @@ using System.Net.Http;
 using System.Threading.Tasks;
 
 namespace Metafi.Unity {
-    public class SDK : MonoBehaviour {
+    public class MetafiProvider : MonoBehaviour {
         
         private static readonly HttpClient client = new HttpClient();
 
@@ -16,6 +16,10 @@ namespace Metafi.Unity {
         Vuplex.WebView.CanvasWebViewPrefab _canvasWebViewPrefab;
 
         Dictionary<string, TaskCompletionSource<dynamic>> promises = new Dictionary<string, TaskCompletionSource<dynamic>>();
+
+        public MetafiProvider() {
+            
+        }
 
         async void Start() {
             Debug.Log("Setting _canvasWebViewPrefab");
