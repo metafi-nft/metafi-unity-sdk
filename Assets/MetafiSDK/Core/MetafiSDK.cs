@@ -1,173 +1,194 @@
 using System.Collections;
-using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
-using Newtonsoft.Json;
+// using Newtonsoft.Json;
 using System.Net.Http;
-using System.Threading.Tasks;
+using System.Collections.Generic;
+using System.Dynamic;
 
 namespace Metafi.Unity {
-    public class MetafiProvider : MonoBehaviour {
+    public sealed class MetafiProvider : MonoBehaviour {
+        private static MetafiProvider _instance;
+        private static WebViewController _webViewController;
+        // Dictionary<string, TaskCompletionSource<dynamic>> promises = new Dictionary<string, TaskCompletionSource<dynamic>>();
         
-        private static readonly HttpClient client = new HttpClient();
-
-        GameObject _webview;
-
-        Vuplex.WebView.CanvasWebViewPrefab _canvasWebViewPrefab;
-
-        Dictionary<string, TaskCompletionSource<dynamic>> promises = new Dictionary<string, TaskCompletionSource<dynamic>>();
-
-        public MetafiProvider() {
-            
-        }
-
-        async void Start() {
-            Debug.Log("Setting _canvasWebViewPrefab");
-            _compressWebview();
-            _webview = GameObject.Find("CanvasWebViewPrefab");
-            _canvasWebViewPrefab = _webview.GetComponent<Vuplex.WebView.CanvasWebViewPrefab>();
-            await _canvasWebViewPrefab.WaitUntilInitialized();
-            await _canvasWebViewPrefab.WebView.WaitForNextPageLoadToFinish();
-            _initializeProvider();
-            _canvasWebViewPrefab.WebView.MessageEmitted += _handleWebViewMessageEmitted;
-        }
-
-        void _handleWebViewMessageEmitted(object sender, Vuplex.WebView.EventArgs<string> eventArgs) {
-            Debug.Log("_handleWebViewMessageEmitted");
-            Debug.Log("JSON received: " + sender + ", " + eventArgs.Value);
-
-            dynamic eventObj = JsonConvert.DeserializeObject<dynamic>(eventArgs.Value);
-            
-            int statusCode = eventObj.statusCode;
-            dynamic data = eventObj.data;
-            string eventType = eventObj.eventType;
-            dynamic eventMetadata = eventObj.eventMetadata;
-            string error = eventObj.error;
-
-            Debug.Log("statusCode, data, error, eventType, eventMetadata = " +  statusCode + " " + data + " " + error + " " + eventType + " " + eventMetadata);
-
-            switch(eventType) {
-                case "modalStatus":
-                    if (data.open == false) {
-                        _compressWebview();
-                    } else if (data.open == true) {
-                        _expandWebview();
-                    }
-                    break;
-                case "returnResult":
-                    string strUuid = eventMetadata.uuid.ToString();
-                    if (promises.ContainsKey(strUuid)) {
-                        promises[strUuid].TrySetResult(data);
-                    }
-                    break;
-
-                default:
-                    break;
+        public static MetafiProvider Instance {
+            get {
+                if (_instance == null) {
+                    _instance = new MetafiProvider();
+                }
+                return _instance;
             }
         }
 
-        void _expandWebview() {
-            Debug.Log("_expandWebview");
-            _webview.transform.localScale = new Vector3(1, 1, 1);
+        private MetafiProvider() {
+            _webViewController = WebViewController.Instance;
+            // _webViewController.SubscribeToWebViewEvents(_handleSDKMessage);
         }
 
-        void _compressWebview() {
-            Debug.Log("_compressWebview");
-            _webview.transform.localScale = new Vector3(0, 0, 0);
-        }
+        // void _handleSDKMessage(dynamic eventObj) {
+        //     Debug.Log("_handleSDKMessage");
+        //     Debug.Log("eventObj received: " + eventObj);
+        //     // dynamic eventObj = JsonConvert.DeserializeObject<dynamic>(eventArgs.Value);
+            
+        //     int statusCode = eventObj.statusCode;
+        //     dynamic data = eventObj.data;
+        //     string eventType = eventObj.eventType;
+        //     dynamic eventMetadata = eventObj.eventMetadata;
+        //     string error = eventObj.error;
 
-        void _initializeProvider() {
-            Debug.Log("_initializeProvider");
+        //     Debug.Log("statusCode, data, error, eventType, eventMetadata = " +  statusCode + " " + data + " " + error + " " + eventType + " " + eventMetadata);
 
-            string base64logo = Resources.Load<TextAsset>("logo").text;
-            Debug.Log("image data in base64=" + base64logo);
+        //     switch(eventType) {
+        //         case "modalStatus":
+        //             if (data.open == false) {
+        //                 _webViewController.CompressWebview();
+        //             } else if (data.open == true) {
+        //                 _webViewController.ExpandWebview();
+        //             }
+        //             break;
+        //         case "returnResult":
+        //             string strUuid = eventMetadata.uuid.ToString();
+        //             if (promises.ContainsKey(strUuid)) {
+        //                 promises[strUuid].TrySetResult(data);
+        //             }
+        //             break;
 
-            _invokeSDK("initialise", new {
-                apiKey = "test-6371f967cea553bdd5ae3d5e-mrQsJvLklpohUWuN",
-                secretKey = "KkEWQkndudnJmipaSpIfD1rO",
-                supportedChains = new[] {"eth", "goerli", "mumbai", "matic"},
-                options = new {
-                    logo = base64logo,
-                    theme = new {}
-                },
-            });
-        }
+        //         default:
+        //             break;
+        //     }
+        // }
 
-        void _invokeSDK(string _type, System.Object _payload, TaskCompletionSource<dynamic> promise = null) {
-            string _uuid = System.Guid.NewGuid().ToString();
-            string json = JsonConvert.SerializeObject(new {
-                type = _type,
-                props = _payload,
-                uuid = _uuid
-            });
+        public async void Init(
+            string _apiKey, 
+            string _secretKey, 
+            dynamic _options, 
+            List<Chain> _supportedChains,
+            List<Token> _customTokens) {
+            
+            Debug.Log("Init");
 
-            Debug.Log("json: " + json);
+            await _webViewController.SetupWebView();
 
-            if (promise != null) {
-                Debug.Log("Appending promise to dict");
-                promises[_uuid] = promise;
-                Debug.Log("Appended = " + promises[_uuid]);
+            dynamic initParams = new ExpandoObject();
+            initParams.apiKey = _apiKey;
+            initParams.secretKey = _secretKey;
+            initParams.options = new ExpandoObject();
+
+            var _optionsDict = (IDictionary<string,object>)_options;
+            
+            try {
+
+                byte[] logoBytes = System.IO.File.ReadAllBytes((string)_optionsDict["logo"]);  
+                string base64logo = "data:image/png;base64," + System.Convert.ToBase64String(logoBytes);
+                initParams.options.logo = base64logo;
+            } catch (System.Exception e) {
+                Debug.Log("exception while reading image from path, e=" + e.ToString());
             }
 
-            _canvasWebViewPrefab.WebView.PostMessage(json);
-            // _canvasWebViewPrefab.WebView.PostMessage("hiii");
-        }
+            try {
+                initParams.options.theme = (dynamic)_optionsDict["theme"];
+            } catch (System.Exception e) {
+                Debug.Log("exception while appending theme to init params, e=" + e.ToString());
+            }
 
-        public void show(){
-            Debug.Log("show");
-            // _webview.GetComponent<Renderer>().enabled = true;
-            // _expandWebview();
-            _invokeSDK("method", new {
-                methodName = "ShowWallet",
-                methodParams = new string[] {},
-                methodOutput = ""
-            });
-        }
+            try {
+                List<string> parsedSupportedChains = new List<string>();
+                foreach (Chain chain in _supportedChains) {
+                    parsedSupportedChains.Add(chain.chainKey);
+                }
+                initParams.supportedChains = parsedSupportedChains;
+            } catch (System.Exception e) {
+                Debug.Log("exception while appending supportedChains to init params, e=" + e.ToString());
+            }
 
-        public async void login(){
-            Debug.Log("login");
+            try {
+                List<dynamic> parsedCustomTokens = new List<dynamic>();
+                foreach (Token token in _customTokens) {
+                    parsedCustomTokens.Add(new {
+                        name = token.name,
+                        symbol = token.symbol,
+                        chain = token.chain.chainKey,
+                        image = token.image,
+                        contractAddress = token.contractAddress,
+                        decimals = token.decimals
+                    });
+                }
+                //
+                initParams.customTokens = parsedCustomTokens;
+            } catch (System.Exception e) {
+                Debug.Log("exception while appending custom tokens to init params, e=" + e.ToString());
+            }
 
-            var response = await client.PostAsync("https://vpa58nk2e9.execute-api.us-east-1.amazonaws.com/dev/testMerchantAuthenticate", null);
-            var responseString = await response.Content.ReadAsStringAsync();
+            // _webViewController.InvokeSDK("Init", initParams, "", ((System.Action<dynamic>) (result => {
+            //     Debug.Log("Init complete, result: " + result.ToString());
+            // })));            
             
-            dynamic responseObj = JsonConvert.DeserializeObject<dynamic>(responseString);
+            await _webViewController.InvokeSDK("Init", initParams, "");
+        }
 
-            string userIdentifier = responseObj.userIdentifier;
-            string jwtToken = responseObj.jwtToken;
+        // void _invokeSDK(string _type, System.Object _payload, TaskCompletionSource<dynamic> promise = null) {
+        //     string _uuid = System.Guid.NewGuid().ToString();
+        //     string json = JsonConvert.SerializeObject(new {
+        //         type = _type,
+        //         props = _payload,
+        //         uuid = _uuid
+        //     });
 
-            Debug.Log("response from login: " + userIdentifier + " " + jwtToken);
+        //     Debug.Log("json: " + json);
 
-            _invokeSDK("method", new {
-                methodName = "Login",
-                methodParams = new [] { userIdentifier, jwtToken },
-                methodOutput = "callback"
-            });
+        //     if (promise != null) {
+        //         Debug.Log("Appending promise to dict");
+        //         promises[_uuid] = promise;
+        //         Debug.Log("Appended = " + promises[_uuid]);
+        //     }
+
+        //     _webViewController.PostMessage(json);
+        // }
+
+        // public void show(){
+        //     Debug.Log("show");
+        //     // _webview.GetComponent<Renderer>().enabled = true;
+        //     // _expandWebview();
+        //     _invokeSDK("method", new {
+        //         methodName = "ShowWallet",
+        //         methodParams = new string[] {},
+        //         methodOutput = ""
+        //     });
+        // }
+
+        public async void Login(string userIdentifier, string jwtToken, System.Action<dynamic> callback) {
+            Debug.Log("Login");
+
+            var loginParams = new [] { userIdentifier, jwtToken };
+
+            await _webViewController.InvokeSDK("Login", loginParams, "callback", callback);  
         }
         
         public void checkout(){
             Debug.Log("checkout");
         }
         
-        public void disconnect(){
-            Debug.Log("disconnect");
-            _invokeSDK("method", new {
-                methodName = "Disconnect",
-                methodParams = new string[] { },
-                methodOutput = ""
-            });
-        }
+        // public void disconnect(){
+        //     Debug.Log("disconnect");
+        //     _invokeSDK("method", new {
+        //         methodName = "Disconnect",
+        //         methodParams = new string[] { },
+        //         methodOutput = ""
+        //     });
+        // }
         
-        public async void retrieveUser(){
-            Debug.Log("retrieveUser");
-            var promise = new TaskCompletionSource<dynamic>();
-            _invokeSDK("method", new {
-                methodName = "RetrieveUser",
-                methodParams = new string[] { },
-                methodOutput = "return"
-            }, promise);
-            var result = await promise.Task;
-            Debug.Log("result of promise is = " + result);
-        }
+        // public async void retrieveUser(){
+        //     Debug.Log("retrieveUser");
+        //     var promise = new TaskCompletionSource<dynamic>();
+        //     _invokeSDK("method", new {
+        //         methodName = "RetrieveUser",
+        //         methodParams = new string[] { },
+        //         methodOutput = "return"
+        //     }, promise);
+        //     var result = await promise.Task;
+        //     Debug.Log("result of promise is = " + result);
+        // }
         
         public void transferTokens(){
             Debug.Log("transferTokens");
