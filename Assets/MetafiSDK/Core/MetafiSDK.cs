@@ -5,17 +5,20 @@ using UnityEngine.UI;
 using System.Net.Http;
 using System.Collections.Generic;
 using System.Dynamic;
+using System.Threading.Tasks;
 
 namespace Metafi.Unity {
     public sealed class MetafiProvider : MonoBehaviour {
         private static MetafiProvider _instance;
         private static WebViewController _webViewController;
-        // Dictionary<string, TaskCompletionSource<dynamic>> promises = new Dictionary<string, TaskCompletionSource<dynamic>>();
-        
+
         public static MetafiProvider Instance {
             get {
                 if (_instance == null) {
-                    _instance = new MetafiProvider();
+                    _instance = (MetafiProvider) new GameObject("MetafiSDKPrefabDesktopNative").AddComponent<MetafiProvider>();
+                    DontDestroyOnLoad(_instance.gameObject);
+                    
+                    // _instance = new MetafiProvider();
                 }
                 return _instance;
             }
@@ -23,43 +26,9 @@ namespace Metafi.Unity {
 
         private MetafiProvider() {
             _webViewController = WebViewController.Instance;
-            // _webViewController.SubscribeToWebViewEvents(_handleSDKMessage);
         }
 
-        // void _handleSDKMessage(dynamic eventObj) {
-        //     Debug.Log("_handleSDKMessage");
-        //     Debug.Log("eventObj received: " + eventObj);
-        //     // dynamic eventObj = JsonConvert.DeserializeObject<dynamic>(eventArgs.Value);
-            
-        //     int statusCode = eventObj.statusCode;
-        //     dynamic data = eventObj.data;
-        //     string eventType = eventObj.eventType;
-        //     dynamic eventMetadata = eventObj.eventMetadata;
-        //     string error = eventObj.error;
-
-        //     Debug.Log("statusCode, data, error, eventType, eventMetadata = " +  statusCode + " " + data + " " + error + " " + eventType + " " + eventMetadata);
-
-        //     switch(eventType) {
-        //         case "modalStatus":
-        //             if (data.open == false) {
-        //                 _webViewController.CompressWebview();
-        //             } else if (data.open == true) {
-        //                 _webViewController.ExpandWebview();
-        //             }
-        //             break;
-        //         case "returnResult":
-        //             string strUuid = eventMetadata.uuid.ToString();
-        //             if (promises.ContainsKey(strUuid)) {
-        //                 promises[strUuid].TrySetResult(data);
-        //             }
-        //             break;
-
-        //         default:
-        //             break;
-        //     }
-        // }
-
-        public async void Init(
+        public async Task Init(
             string _apiKey, 
             string _secretKey, 
             dynamic _options, 
@@ -118,77 +87,44 @@ namespace Metafi.Unity {
                 initParams.customTokens = parsedCustomTokens;
             } catch (System.Exception e) {
                 Debug.Log("exception while appending custom tokens to init params, e=" + e.ToString());
-            }
-
-            // _webViewController.InvokeSDK("Init", initParams, "", ((System.Action<dynamic>) (result => {
-            //     Debug.Log("Init complete, result: " + result.ToString());
-            // })));            
+            }         
             
             await _webViewController.InvokeSDK("Init", initParams, "");
         }
 
-        // void _invokeSDK(string _type, System.Object _payload, TaskCompletionSource<dynamic> promise = null) {
-        //     string _uuid = System.Guid.NewGuid().ToString();
-        //     string json = JsonConvert.SerializeObject(new {
-        //         type = _type,
-        //         props = _payload,
-        //         uuid = _uuid
-        //     });
-
-        //     Debug.Log("json: " + json);
-
-        //     if (promise != null) {
-        //         Debug.Log("Appending promise to dict");
-        //         promises[_uuid] = promise;
-        //         Debug.Log("Appended = " + promises[_uuid]);
-        //     }
-
-        //     _webViewController.PostMessage(json);
-        // }
-
-        // public void show(){
-        //     Debug.Log("show");
-        //     // _webview.GetComponent<Renderer>().enabled = true;
-        //     // _expandWebview();
-        //     _invokeSDK("method", new {
-        //         methodName = "ShowWallet",
-        //         methodParams = new string[] {},
-        //         methodOutput = ""
-        //     });
-        // }
-
-        public async void Login(string userIdentifier, string jwtToken, System.Action<dynamic> callback) {
+        public async Task Login(string userIdentifier, string jwtToken, System.Action<dynamic> callback) {
             Debug.Log("Login");
 
             var loginParams = new [] { userIdentifier, jwtToken };
-
             await _webViewController.InvokeSDK("Login", loginParams, "callback", callback);  
         }
-        
-        public void checkout(){
-            Debug.Log("checkout");
+
+        public async Task Show(){
+            Debug.Log("Show");
+
+            await _webViewController.InvokeSDK("ShowWallet", new string[] {}, "");
         }
         
-        // public void disconnect(){
-        //     Debug.Log("disconnect");
-        //     _invokeSDK("method", new {
-        //         methodName = "Disconnect",
-        //         methodParams = new string[] { },
-        //         methodOutput = ""
-        //     });
+        // public async Task Checkout(){
+        //     Debug.Log("Checkout");
         // }
         
-        // public async void retrieveUser(){
-        //     Debug.Log("retrieveUser");
-        //     var promise = new TaskCompletionSource<dynamic>();
-        //     _invokeSDK("method", new {
-        //         methodName = "RetrieveUser",
-        //         methodParams = new string[] { },
-        //         methodOutput = "return"
-        //     }, promise);
-        //     var result = await promise.Task;
-        //     Debug.Log("result of promise is = " + result);
-        // }
+        public async Task Disconnect(){
+            Debug.Log("Disconnect");
+
+            await _webViewController.InvokeSDK("Disconnect", new string[] {}, "");
+        }
+        
+        public async Task<dynamic> RetrieveUser(){
+            Debug.Log("RetrieveUser");
+            
+            dynamic res = new {};
+            await _webViewController.InvokeSDK("RetrieveUser", new string[] { }, "return", ((System.Action<dynamic>) (result => {
+                res = result;
+            })));
+
+            return res;
+        }
         
         public void transferTokens(){
             Debug.Log("transferTokens");

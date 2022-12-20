@@ -4,12 +4,11 @@ using System.Collections.Generic;
 using Newtonsoft.Json;
 
 namespace Metafi.Unity {
-    public sealed class WebViewController : MonoBehaviour {
+    public sealed class WebViewController {
         
         private static GameObject _webview;
         private static Vuplex.WebView.CanvasWebViewPrefab _canvasWebViewPrefab;
         private static WebViewController _instance;
-        // public event System.Action<dynamic> WebViewActionHandler;
         private static Dictionary<string, TaskCompletionSource<dynamic>> promises = new Dictionary<string, TaskCompletionSource<dynamic>>();
         
         public static WebViewController Instance {
@@ -33,14 +32,6 @@ namespace Metafi.Unity {
             _canvasWebViewPrefab.WebView.MessageEmitted += _handleWebViewMessageEmitted;
             Debug.Log("complete _setupWebView");
         }
-
-        // void _handleWebViewMessageEmitted(object sender, Vuplex.WebView.EventArgs<string> eventArgs) {
-        //     Debug.Log("_handleWebViewMessageEmitted");
-        //     Debug.Log("JSON received: " + sender + ", " + eventArgs.Value);
-            
-        //     dynamic eventObj = JsonConvert.DeserializeObject<dynamic>(eventArgs.Value);
-        //     WebViewActionHandler?.Invoke(eventObj);
-        // }
 
         void _handleWebViewMessageEmitted(object sender, Vuplex.WebView.EventArgs<string> eventArgs) {
             Debug.Log("_handleWebViewMessageEmitted");
@@ -92,22 +83,19 @@ namespace Metafi.Unity {
             }
         }
 
-        // public void SubscribeToWebViewEvents(System.Action<dynamic> handlerFunc) {
-        //     WebViewActionHandler += handlerFunc;
-        // }
-
         public void ExpandWebview() {
-            Debug.Log("_expandWebview");
+            Debug.Log("ExpandWebview");
             _webview.transform.localScale = new Vector3(1, 1, 1);
         }
 
         public void CompressWebview() {
-            Debug.Log("_compressWebview");
+            Debug.Log("CompressWebview");
             _webview.transform.localScale = new Vector3(0, 0, 0);
         }
 
         public async Task InvokeSDK(string methodName, dynamic methodParams, string methodOutput, System.Action<dynamic> onComplete = null) {
-            // string _type, System.Object _payload, TaskCompletionSource<dynamic> promise = null) {
+            Debug.Log("InvokeSDK");
+
             string _uuid = System.Guid.NewGuid().ToString();
             
             dynamic _payload = new {
@@ -125,15 +113,14 @@ namespace Metafi.Unity {
             Debug.Log("json: " + json);
 
             var promise = new TaskCompletionSource<dynamic>();
-            if (methodOutput == "callback" || methodOutput == "result") {
+            if (methodOutput == "callback" || methodOutput == "return") {
                 promises.Add(_uuid, promise);
             }
             
             _canvasWebViewPrefab.WebView.PostMessage(json);
             
-            if (methodOutput == "callback" || methodOutput == "result") {
+            if (methodOutput == "callback" || methodOutput == "return") {
                 dynamic result = await promise.Task;
-                Debug.Log("result of promise is = " + result);
                 promises.Remove(_uuid);
                 onComplete?.Invoke(result);
             }
