@@ -5,7 +5,6 @@ using Newtonsoft.Json;
 
 namespace Metafi.Unity {
     public sealed class WebViewController {
-        
         private static GameObject _webview;
         private static Vuplex.WebView.CanvasWebViewPrefab _canvasWebViewPrefab;
         private static WebViewController _instance;
@@ -93,7 +92,7 @@ namespace Metafi.Unity {
             _webview.transform.localScale = new Vector3(0, 0, 0);
         }
 
-        public async Task InvokeSDK(string methodName, dynamic methodParams, string methodOutput, System.Action<dynamic> onComplete = null) {
+        public async Task InvokeSDK(string methodName, dynamic methodParams, string methodOutput, bool isArgsObject = false, System.Action<dynamic> onComplete = null) {
             Debug.Log("InvokeSDK");
 
             string _uuid = System.Guid.NewGuid().ToString();
@@ -102,6 +101,7 @@ namespace Metafi.Unity {
                 methodName = methodName,
                 methodParams = methodParams,
                 methodOutput = methodOutput,
+                isArgsObject = isArgsObject,
             };
 
             string json = JsonConvert.SerializeObject(new {

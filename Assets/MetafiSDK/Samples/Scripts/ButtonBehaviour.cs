@@ -40,19 +40,28 @@ public class ButtonBehaviour : MonoBehaviour
         _options.logo = @"Assets/Resources/logo.png";
         _options.theme = new {};
 
+        Token wethToken = new Token(
+            "Wrapped Ethereum",
+            "goerliWETH",
+            Chains.GOERLI,
+            "https://d2qdyxy3mxzsfv.cloudfront.net/images/logo/ethereum.png",
+            "0xb4fbf271143f4fbf7b91a5ded31805e42b2208d6",
+            18
+        );
+
         await MetafiProvider.Instance.Init(
             "test-6371f967cea553bdd5ae3d5e-mrQsJvLklpohUWuN",
             "KkEWQkndudnJmipaSpIfD1rO",
             _options,
             new List<Chain> {Chains.GOERLI, Chains.MUMBAI},
-            new List<Token> {}
+            new List<Token> {wethToken}
         );
     }
 
     public async void show(){
         Debug.Log("show");
         
-        await MetafiProvider.Instance.Show();
+        await MetafiProvider.Instance.ShowWallet();
     }
 
     public async void login(){
@@ -90,7 +99,16 @@ public class ButtonBehaviour : MonoBehaviour
         Debug.Log("retrieveUser complete, result: " + res.ToString());
     }
     
-    public void transferTokens(){
+    public async void transferTokens(){
         Debug.Log("transferTokens");
+
+        await MetafiProvider.Instance.TransferTokens( new {
+            to = "0xd4594dECd0ed8BA4C7d5810dbB8D004C74250BD5",
+            amount = "0.001",
+            currency = Assets.GOERLI_ETH,
+        }, 
+        ((System.Action<dynamic>) (result => {
+            Debug.Log("TransferTokens complete, result: " + result.ToString());
+        })));
     }
 }

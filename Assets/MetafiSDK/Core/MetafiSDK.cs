@@ -33,7 +33,8 @@ namespace Metafi.Unity {
             string _secretKey, 
             dynamic _options, 
             List<Chain> _supportedChains,
-            List<Token> _customTokens) {
+            List<Token> _customTokens,
+            bool _metafiSSO = false) {
             
             Debug.Log("Init");
 
@@ -43,6 +44,7 @@ namespace Metafi.Unity {
             initParams.apiKey = _apiKey;
             initParams.secretKey = _secretKey;
             initParams.options = new ExpandoObject();
+            initParams.metafiSSO = _metafiSSO;
 
             var _optionsDict = (IDictionary<string,object>)_options;
             
@@ -92,18 +94,54 @@ namespace Metafi.Unity {
             await _webViewController.InvokeSDK("Init", initParams, "");
         }
 
-        public async Task Login(string userIdentifier, string jwtToken, System.Action<dynamic> callback) {
+        public async Task Login(string userIdentifier, string jwtToken, System.Action<dynamic> callback = null) {
             Debug.Log("Login");
 
             var loginParams = new [] { userIdentifier, jwtToken };
-            await _webViewController.InvokeSDK("Login", loginParams, "callback", callback);  
+            await _webViewController.InvokeSDK("Login", loginParams, "callback", false, callback);  
         }
 
-        public async Task Show(){
-            Debug.Log("Show");
+        public async Task ShowWallet(){
+            Debug.Log("ShowWallet");
 
             await _webViewController.InvokeSDK("ShowWallet", new string[] {}, "");
         }
+
+        public async Task TransferTokens(dynamic args, System.Action<dynamic> callback = null) {
+            Debug.Log("TransferTokens");
+
+            dynamic ttParams = new ExpandoObject();
+
+            try {
+                ttParams.to = args.to;
+            } catch (System.Exception) {
+                ttParams.to = "";
+            }
+
+            try {
+                ttParams.amount = args.amount;
+            } catch (System.Exception) {
+                ttParams.amount = "";
+            }
+
+            try {
+                ttParams.currency = args.currency.assetKey;
+            } catch (System.Exception) {
+                ttParams.currency = "";
+            }
+
+            await _webViewController.InvokeSDK("TransferTokens", ttParams, "callback", true, callback);
+        }
+
+        // TransferTokens({
+        //     userIdentifier:userIdentifier,
+        //     callback:(result)=>{
+        //         console.log('callback result',result)
+        //     },
+        //     to:'0xd4594dECd0ed8BA4C7d5810dbB8D004C74250BD5',
+        //     amount:'0.0001',
+        //     currency:assets.goerli_eth
+        // })
         
         // public async Task Checkout(){
         //     Debug.Log("Checkout");
@@ -119,15 +157,11 @@ namespace Metafi.Unity {
             Debug.Log("RetrieveUser");
             
             dynamic res = new {};
-            await _webViewController.InvokeSDK("RetrieveUser", new string[] { }, "return", ((System.Action<dynamic>) (result => {
+            await _webViewController.InvokeSDK("RetrieveUser", new string[] { }, "return", false, ((System.Action<dynamic>) (result => {
                 res = result;
             })));
 
             return res;
-        }
-        
-        public void transferTokens(){
-            Debug.Log("transferTokens");
         }
     }
 }

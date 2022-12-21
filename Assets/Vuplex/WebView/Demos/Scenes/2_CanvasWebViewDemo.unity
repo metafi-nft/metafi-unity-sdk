@@ -1858,10 +1858,6 @@ PrefabInstance:
       propertyPath: m_Name
       value: MetafiSDKPrefabDesktopNative
       objectReference: {fileID: 0}
-    - target: {fileID: 1723449410158193866, guid: 087218eedd8da4ac3b475012a0396fc6, type: 3}
-      propertyPath: m_IsActive
-      value: 1
-      objectReference: {fileID: 0}
     - target: {fileID: 4481097000162625179, guid: 087218eedd8da4ac3b475012a0396fc6, type: 3}
       propertyPath: m_Pivot.x
       value: 0.5
@@ -1897,18 +1893,6 @@ PrefabInstance:
     - target: {fileID: 4481097000162625179, guid: 087218eedd8da4ac3b475012a0396fc6, type: 3}
       propertyPath: m_SizeDelta.y
       value: 100
-      objectReference: {fileID: 0}
-    - target: {fileID: 4481097000162625179, guid: 087218eedd8da4ac3b475012a0396fc6, type: 3}
-      propertyPath: m_LocalScale.x
-      value: 1
-      objectReference: {fileID: 0}
-    - target: {fileID: 4481097000162625179, guid: 087218eedd8da4ac3b475012a0396fc6, type: 3}
-      propertyPath: m_LocalScale.y
-      value: 1
-      objectReference: {fileID: 0}
-    - target: {fileID: 4481097000162625179, guid: 087218eedd8da4ac3b475012a0396fc6, type: 3}
-      propertyPath: m_LocalScale.z
-      value: 1
       objectReference: {fileID: 0}
     - target: {fileID: 4481097000162625179, guid: 087218eedd8da4ac3b475012a0396fc6, type: 3}
       propertyPath: m_LocalPosition.x
@@ -1957,6 +1941,10 @@ PrefabInstance:
     - target: {fileID: 4481097000162625179, guid: 087218eedd8da4ac3b475012a0396fc6, type: 3}
       propertyPath: m_LocalEulerAnglesHint.z
       value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 6490542372502223674, guid: 087218eedd8da4ac3b475012a0396fc6, type: 3}
+      propertyPath: InitialUrl
+      value: https://localhost:4005/
       objectReference: {fileID: 0}
     m_RemovedComponents: []
   m_SourcePrefab: {fileID: 100100000, guid: 087218eedd8da4ac3b475012a0396fc6, type: 3}
