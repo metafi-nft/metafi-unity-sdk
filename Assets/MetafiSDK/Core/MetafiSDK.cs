@@ -132,20 +132,31 @@ namespace Metafi.Unity {
 
             await _webViewController.InvokeSDK("TransferTokens", ttParams, "callback", true, callback);
         }
-
-        // TransferTokens({
-        //     userIdentifier:userIdentifier,
-        //     callback:(result)=>{
-        //         console.log('callback result',result)
-        //     },
-        //     to:'0xd4594dECd0ed8BA4C7d5810dbB8D004C74250BD5',
-        //     amount:'0.0001',
-        //     currency:assets.goerli_eth
-        // })
         
-        // public async Task Checkout(){
-        //     Debug.Log("Checkout");
-        // }
+        public async Task Checkout(dynamic args, System.Action<dynamic> callback = null){
+            Debug.Log("Checkout");
+
+            dynamic chkParams = new ExpandoObject();
+            
+            try {
+                chkParams.cost = args.cost;
+                chkParams.currency = args.currency.assetKey;
+                chkParams.itemDescription = args.itemDescription;
+                chkParams.treasuryAddress = args.treasuryAddress;
+                chkParams.webhookUrl = args.webhookUrl;
+            } catch (System.Exception) {
+                Debug.Log("incorrect arguments for checkout, please refer to the documentation");
+                return;
+            }
+
+            try {
+                chkParams.webhookMetadata = args.webhookMetadata;
+            } catch (System.Exception) {
+                chkParams.webhookMetadata = "";
+            }
+
+            await _webViewController.InvokeSDK("Checkout", chkParams, "callback", true, callback);
+        }
         
         public async Task Disconnect(){
             Debug.Log("Disconnect");

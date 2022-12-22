@@ -82,8 +82,20 @@ public class ButtonBehaviour : MonoBehaviour
         })));
     }
     
-    public void checkout(){
+    public async void checkout(){
         Debug.Log("checkout");
+
+        await MetafiProvider.Instance.Checkout( new {
+            cost = "0.001",
+            currency = Assets.GOERLI_ETH,
+            itemDescription = "Gorilla Metapal",
+            treasuryAddress = "0xd4594dECd0ed8BA4C7d5810dbB8D004C74250BD5",
+            webhookMetadata = "{\"func\":\"buyNft\"}",
+            webhookUrl = "https://w1ldqorig5.execute-api.us-east-1.amazonaws.com/test/notifyTransaction"
+        }, 
+        ((System.Action<dynamic>) (result => {
+            Debug.Log("Checkout complete, result: " + result.ToString());
+        })));
     }
     
     public async void disconnect(){
