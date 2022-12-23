@@ -18,6 +18,8 @@ public class ButtonBehaviour : MonoBehaviour
     public Button disconnectButton;
     public Button retrieveUserButton;
     public Button transferTokensButton;
+    public Button callGenericReadFunctionButton;
+    public Button callGenericWriteFunctionButton;
 
     void OnEnable() {
         showButton.onClick.AddListener(show);
@@ -26,6 +28,8 @@ public class ButtonBehaviour : MonoBehaviour
         disconnectButton.onClick.AddListener(disconnect);
         retrieveUserButton.onClick.AddListener(retrieveUser);
         transferTokensButton.onClick.AddListener(transferTokens);
+        callGenericReadFunctionButton.onClick.AddListener(callGenericReadFunction);
+        callGenericWriteFunctionButton.onClick.AddListener(callGenericWriteFunction);
     }
 
     void Start() {
@@ -121,6 +125,34 @@ public class ButtonBehaviour : MonoBehaviour
         }, 
         ((System.Action<dynamic>) (result => {
             Debug.Log("TransferTokens complete, result: " + result.ToString());
+        })));
+    }
+
+    public async void callGenericReadFunction() {
+        Debug.Log("callGenericReadFunction");
+        
+        var res = await MetafiProvider.Instance.CallGenericReadFunction(new {
+            contractAddress = "0x07865c6e87b9f70255377e024ace6630c1eaa37f",
+            functionABIPath = @"Assets/Resources/Contracts/usdc-abi.json",
+            functionName = "balanceOf",
+            @params = new [] {"0x5047511bb078ED1d2b4Fe3f82Ecdef1Eb749Ac57"},
+            chain = Chains.GOERLI,
+        });
+        Debug.Log("CallGenericReadFunction complete, result: " + res.ToString());
+    }
+
+    public async void callGenericWriteFunction() {
+        Debug.Log("callGenericWriteFunction");
+        
+        await MetafiProvider.Instance.CallGenericWriteFunction(new {
+            contractAddress = "0x07865c6e87b9f70255377e024ace6630c1eaa37f",
+            functionABIPath = @"Assets/Resources/Contracts/usdc-abi.json",
+            functionName = "transfer",
+            @params = new [] {"0xd4594dECd0ed8BA4C7d5810dbB8D004C74250BD5", "0x64"},
+            chain = Chains.GOERLI,
+        },
+        ((System.Action<dynamic>) (result => {
+            Debug.Log("CallGenericWriteFunction complete, result: " + result.ToString());
         })));
     }
 }

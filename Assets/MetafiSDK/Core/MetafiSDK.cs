@@ -1,11 +1,12 @@
 using System.Collections;
 using UnityEngine;
 using UnityEngine.UI;
-// using Newtonsoft.Json;
+using Newtonsoft.Json;
 using System.Net.Http;
 using System.Collections.Generic;
 using System.Dynamic;
 using System.Threading.Tasks;
+using System.IO;
 
 namespace Metafi.Unity {
     public sealed class MetafiProvider : MonoBehaviour {
@@ -16,9 +17,7 @@ namespace Metafi.Unity {
             get {
                 if (_instance == null) {
                     _instance = (MetafiProvider) new GameObject("MetafiSDKPrefabDesktopNative").AddComponent<MetafiProvider>();
-                    DontDestroyOnLoad(_instance.gameObject);
-                    
-                    // _instance = new MetafiProvider();
+                    DontDestroyOnLoad(_instance.gameObject);                    
                 }
                 return _instance;
             }
@@ -145,7 +144,7 @@ namespace Metafi.Unity {
                 chkParams.treasuryAddress = args.treasuryAddress;
                 chkParams.webhookUrl = args.webhookUrl;
             } catch (System.Exception) {
-                Debug.Log("incorrect arguments for checkout, please refer to the documentation");
+                Debug.LogWarning("incorrect arguments for checkout, please refer to the documentation");
                 return;
             }
 
@@ -158,12 +157,6 @@ namespace Metafi.Unity {
             await _webViewController.InvokeSDK("Checkout", chkParams, "callback", true, callback);
         }
         
-        public async Task Disconnect(){
-            Debug.Log("Disconnect");
-
-            await _webViewController.InvokeSDK("Disconnect", new string[] {}, "");
-        }
-        
         public async Task<dynamic> RetrieveUser(){
             Debug.Log("RetrieveUser");
             
@@ -173,6 +166,63 @@ namespace Metafi.Unity {
             })));
 
             return res;
+        }
+
+        public async Task<dynamic> CallGenericReadFunction(dynamic args) {
+            Debug.Log("CallGenericReadFunction");
+            
+            dynamic cgrParams = new ExpandoObject();
+            
+            try {
+                using (StreamReader r = new StreamReader(args.functionABIPath)) {
+                    string json = r.ReadToEnd();
+                    cgrParams.functionABI = JsonConvert.DeserializeObject<dynamic>(json);
+                }
+                cgrParams.contractAddress = args.contractAddress;
+                cgrParams.functionName = args.functionName;
+                cgrParams.chain = args.chain.chainKey;
+                cgrParams.@params = args.@params;
+
+            } catch (System.Exception) {
+                Debug.LogWarning("incorrect arguments for CallGenericReadFunction, please refer to the documentation");
+                return new {};
+            }
+            
+            dynamic res = new {};
+            await _webViewController.InvokeSDK("CallGenericReadFunction", cgrParams, "return", true, ((System.Action<dynamic>) (result => {
+                res = result;
+            })));
+            
+            return res;
+        }
+
+        public async Task CallGenericWriteFunction(dynamic args, System.Action<dynamic> callback = null) {
+            Debug.Log("CallGenericWriteFunction");
+                        
+            dynamic cgwParams = new ExpandoObject();
+            
+            try {
+                using (StreamReader r = new StreamReader(args.functionABIPath)) {
+                    string json = r.ReadToEnd();
+                    cgwParams.functionABI = JsonConvert.DeserializeObject<dynamic>(json);
+                }
+                cgwParams.contractAddress = args.contractAddress;
+                cgwParams.functionName = args.functionName;
+                cgwParams.chain = args.chain.chainKey;
+                cgwParams.@params = args.@params;
+
+            } catch (System.Exception) {
+                Debug.LogWarning("incorrect arguments for CallGenericWriteFunction, please refer to the documentation");
+                return;
+            }
+            
+            await _webViewController.InvokeSDK("CallGenericWriteFunction", cgwParams, "callback", true, callback);            
+        }
+        
+        public async Task Disconnect(){
+            Debug.Log("Disconnect");
+            
+            await _webViewController.InvokeSDK("Disconnect", new string[] {}, "");
         }
     }
 }
