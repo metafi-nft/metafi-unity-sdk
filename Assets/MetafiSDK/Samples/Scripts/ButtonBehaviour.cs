@@ -58,7 +58,8 @@ public class ButtonBehaviour : MonoBehaviour
             "KkEWQkndudnJmipaSpIfD1rO",
             _options,
             new List<Chain> {Chains.GOERLI, Chains.MUMBAI},
-            new List<Token> {wethToken}
+            new List<Token> {wethToken},
+            false
         );
     }
 

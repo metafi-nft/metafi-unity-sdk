@@ -4,47 +4,40 @@ using System.Collections.Generic;
 using Newtonsoft.Json;
 
 namespace Metafi.Unity {
-    public sealed class WebViewController {
-        private static GameObject _webview;
-        private static Vuplex.WebView.CanvasWebViewPrefab _canvasWebViewPrefab;
-        private static WebViewController _instance;
-        private static Dictionary<string, TaskCompletionSource<dynamic>> promises = new Dictionary<string, TaskCompletionSource<dynamic>>();
-        
-        public static WebViewController Instance {
-            get {
-                if (_instance == null) {
-                    _instance = new WebViewController();
-                }
-                return _instance;
-            }
-        }
+    public class WebViewController {
+        private GameObject _webview;
+        private Vuplex.WebView.CanvasWebViewPrefab _canvasWebViewPrefab;
+        private WebViewController _instance;
+        private Dictionary<string, TaskCompletionSource<dynamic>> promises = new Dictionary<string, TaskCompletionSource<dynamic>>();
 
-        private WebViewController() {}
+        public WebViewController() {}
 
-        public async Task SetupWebView() {
-            Debug.Log("SetupWebView");
-            _webview = GameObject.Find("CanvasWebViewPrefab");
-            CompressWebview();
+        public async Task SetupWebView(GameObject webview) {
+            // Debug.Log("SetupWebView");
+            _webview = webview;
             _canvasWebViewPrefab = _webview.GetComponent<Vuplex.WebView.CanvasWebViewPrefab>();
+
             await _canvasWebViewPrefab.WaitUntilInitialized();
+            
+            CompressWebview();
             await _canvasWebViewPrefab.WebView.WaitForNextPageLoadToFinish();
             _canvasWebViewPrefab.WebView.MessageEmitted += _handleWebViewMessageEmitted;
-            Debug.Log("complete _setupWebView");
+
+            // Debug.Log("complete _setupWebView");
         }
 
         void _handleWebViewMessageEmitted(object sender, Vuplex.WebView.EventArgs<string> eventArgs) {
-            Debug.Log("_handleWebViewMessageEmitted");
-            Debug.Log("JSON received: " + sender + ", " + eventArgs.Value);
+            // Debug.Log("_handleWebViewMessageEmitted");
+            // Debug.Log("JSON received: " + sender + ", " + eventArgs.Value);
             
             dynamic eventObj = JsonConvert.DeserializeObject<dynamic>(eventArgs.Value);
             
-            int statusCode = eventObj.statusCode;
             dynamic data = eventObj.data;
             string eventType = eventObj.eventType;
             dynamic eventMetadata = eventObj.eventMetadata;
             string error = eventObj.error;
 
-            Debug.Log("statusCode, data, error, eventType, eventMetadata = " +  statusCode + " " + data + " " + error + " " + eventType + " " + eventMetadata);
+            // Debug.Log("data, error, eventType, eventMetadata = " + data + " " + error + " " + eventType + " " + eventMetadata);
 
             string strUuid;
             switch(eventType) {
@@ -59,7 +52,7 @@ namespace Metafi.Unity {
                     strUuid = eventMetadata.uuid.ToString();
                     if (promises.ContainsKey(strUuid)) {
                         promises[strUuid].TrySetResult(new {
-                            statusCode = statusCode,
+                            // statusCode = statusCode,
                             data = data,
                             error = error,
                         });
@@ -70,7 +63,7 @@ namespace Metafi.Unity {
                     strUuid = eventMetadata.uuid.ToString();
                     if (promises.ContainsKey(strUuid)) {
                         promises[strUuid].TrySetResult(new {
-                            statusCode = statusCode,
+                            // statusCode = statusCode,
                             data = data,
                             error = error,
                         });
@@ -83,17 +76,17 @@ namespace Metafi.Unity {
         }
 
         public void ExpandWebview() {
-            Debug.Log("ExpandWebview");
+            // Debug.Log("ExpandWebview");
             _webview.transform.localScale = new Vector3(1, 1, 1);
         }
 
         public void CompressWebview() {
-            Debug.Log("CompressWebview");
+            // Debug.Log("CompressWebview");
             _webview.transform.localScale = new Vector3(0, 0, 0);
         }
 
         public async Task InvokeSDK(string methodName, dynamic methodParams, string methodOutput, bool isArgsObject = false, System.Action<dynamic> onComplete = null) {
-            Debug.Log("InvokeSDK");
+            // Debug.Log("InvokeSDK");
 
             string _uuid = System.Guid.NewGuid().ToString();
             
@@ -110,12 +103,14 @@ namespace Metafi.Unity {
                 uuid = _uuid
             });
 
-            Debug.Log("json: " + json);
+            // Debug.Log("json: " + json);
 
             var promise = new TaskCompletionSource<dynamic>();
             if (methodOutput == "callback" || methodOutput == "return") {
                 promises.Add(_uuid, promise);
             }
+
+            // Debug.Log("_canvasWebViewPrefab" + _canvasWebViewPrefab);
             
             _canvasWebViewPrefab.WebView.PostMessage(json);
             
@@ -124,6 +119,8 @@ namespace Metafi.Unity {
                 promises.Remove(_uuid);
                 onComplete?.Invoke(result);
             }
+
+            // Debug.Log("InvokeSDK complete");
 
             return;
         }

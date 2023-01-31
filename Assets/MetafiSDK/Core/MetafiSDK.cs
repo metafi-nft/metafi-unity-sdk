@@ -2,7 +2,6 @@ using System.Collections;
 using UnityEngine;
 using UnityEngine.UI;
 using Newtonsoft.Json;
-using System.Net.Http;
 using System.Collections.Generic;
 using System.Dynamic;
 using System.Threading.Tasks;
@@ -11,20 +10,59 @@ using System.IO;
 namespace Metafi.Unity {
     public sealed class MetafiProvider : MonoBehaviour {
         private static MetafiProvider _instance;
-        private static WebViewController _webViewController;
+        private WebViewController _webViewController;
+        private static bool isInitialized = false;
+        private static int instanceID;
+        private static string logFileName;
 
         public static MetafiProvider Instance {
-            get {
+            get {                
                 if (_instance == null) {
-                    _instance = (MetafiProvider) new GameObject("MetafiSDKPrefabDesktopNative").AddComponent<MetafiProvider>();
-                    DontDestroyOnLoad(_instance.gameObject);                    
+                    _instance = GameObject.FindWithTag("MetafiSDK").AddComponent<MetafiProvider>();
+
+                    DontDestroyOnLoad(_instance);
+
+                    instanceID = _instance.gameObject.GetInstanceID();
                 }
                 return _instance;
             }
         }
 
         private MetafiProvider() {
-            _webViewController = WebViewController.Instance;
+            _webViewController = new WebViewController();
+        }
+
+        public void Awake() {
+            logFileName = Application.persistentDataPath + "/logs.txt";
+            // Debug.Log("MetafiProvider Awake, instanceID = " + this.gameObject.GetInstanceID());
+            if (MetafiProvider.instanceID != 0 && this.gameObject.GetInstanceID() != instanceID) {
+                // Debug.Log("destroying duplicate instance with ID = " + this.gameObject.GetInstanceID());
+                Destroy(this.gameObject);
+            }
+        }
+    
+        void OnEnable() {
+            Application.logMessageReceived += Log;  
+        }
+
+        void OnDisable() {
+            Application.logMessageReceived -= Log; 
+        }
+
+        public void Log(string logString, string stackTrace, LogType type)
+        {
+            if (logFileName == "")
+            {
+                string d = System.Environment.GetFolderPath(
+                System.Environment.SpecialFolder.Desktop) + "/YOUR_LOGS";
+                System.IO.Directory.CreateDirectory(d);
+                logFileName = d + "/my_happy_log.txt";
+            }
+    
+            try {
+                System.IO.File.AppendAllText(logFileName, logString + "\n----------------\n");
+            }
+            catch { }
         }
 
         public async Task Init(
@@ -34,10 +72,15 @@ namespace Metafi.Unity {
             List<Chain> _supportedChains,
             List<Token> _customTokens,
             bool _metafiSSO = false) {
-            
-            Debug.Log("Init");
+                        
+            if (isInitialized) {
+                // Debug.Log("MetafiProvider already initialized, skipping");
+                return;
+            }
 
-            await _webViewController.SetupWebView();
+            Debug.Log("[Metafi SDK] Init");
+
+            await _webViewController.SetupWebView(this.gameObject.transform.GetChild(0).gameObject);
 
             dynamic initParams = new ExpandoObject();
             initParams.apiKey = _apiKey;
@@ -53,13 +96,13 @@ namespace Metafi.Unity {
                 string base64logo = "data:image/png;base64," + System.Convert.ToBase64String(logoBytes);
                 initParams.options.logo = base64logo;
             } catch (System.Exception e) {
-                Debug.Log("exception while reading image from path, e=" + e.ToString());
+                Debug.LogError("[Metafi SDK] exception while reading image from path, e=" + e.ToString());
             }
 
             try {
                 initParams.options.theme = (dynamic)_optionsDict["theme"];
             } catch (System.Exception e) {
-                Debug.Log("exception while appending theme to init params, e=" + e.ToString());
+                Debug.LogError("[Metafi SDK] exception while appending theme to init params, e=" + e.ToString());
             }
 
             try {
@@ -69,7 +112,7 @@ namespace Metafi.Unity {
                 }
                 initParams.supportedChains = parsedSupportedChains;
             } catch (System.Exception e) {
-                Debug.Log("exception while appending supportedChains to init params, e=" + e.ToString());
+                Debug.LogError("[Metafi SDK] exception while appending supportedChains to init params, e=" + e.ToString());
             }
 
             try {
@@ -87,27 +130,35 @@ namespace Metafi.Unity {
                 //
                 initParams.customTokens = parsedCustomTokens;
             } catch (System.Exception e) {
-                Debug.Log("exception while appending custom tokens to init params, e=" + e.ToString());
+                Debug.LogError("[Metafi SDK] exception while appending custom tokens to init params, e=" + e.ToString());
             }         
             
             await _webViewController.InvokeSDK("Init", initParams, "");
+            isInitialized = true;
         }
 
         public async Task Login(string userIdentifier, string jwtToken, System.Action<dynamic> callback = null) {
-            Debug.Log("Login");
+            Debug.Log("[Metafi SDK] Login");
 
             var loginParams = new [] { userIdentifier, jwtToken };
             await _webViewController.InvokeSDK("Login", loginParams, "callback", false, callback);  
         }
 
         public async Task ShowWallet(){
-            Debug.Log("ShowWallet");
+            Debug.Log("[Metafi SDK] ShowWallet");
 
             await _webViewController.InvokeSDK("ShowWallet", new string[] {}, "");
         }
 
+        public async Task HideWallet(){
+            Debug.Log("[Metafi SDK] HideWallet");
+
+            await _webViewController.InvokeSDK("HideWallet", new string[] {}, "");
+        }
+
+
         public async Task TransferTokens(dynamic args, System.Action<dynamic> callback = null) {
-            Debug.Log("TransferTokens");
+            Debug.Log("[Metafi SDK] TransferTokens");
 
             dynamic ttParams = new ExpandoObject();
 
@@ -133,7 +184,7 @@ namespace Metafi.Unity {
         }
         
         public async Task Checkout(dynamic args, System.Action<dynamic> callback = null){
-            Debug.Log("Checkout");
+            Debug.Log("[Metafi SDK] Checkout");
 
             dynamic chkParams = new ExpandoObject();
             
@@ -143,8 +194,8 @@ namespace Metafi.Unity {
                 chkParams.itemDescription = args.itemDescription;
                 chkParams.treasuryAddress = args.treasuryAddress;
                 chkParams.webhookUrl = args.webhookUrl;
-            } catch (System.Exception) {
-                Debug.LogWarning("incorrect arguments for checkout, please refer to the documentation");
+            } catch (System.Exception e) {
+                Debug.LogError("[Metafi SDK] incorrect arguments for checkout, please refer to the documentation, exception = " + e.ToString());
                 return;
             }
 
@@ -169,7 +220,7 @@ namespace Metafi.Unity {
         }
 
         public async Task<dynamic> CallGenericReadFunction(dynamic args) {
-            Debug.Log("CallGenericReadFunction");
+            Debug.Log("[Metafi SDK] CallGenericReadFunction");
             
             dynamic cgrParams = new ExpandoObject();
             
@@ -183,8 +234,8 @@ namespace Metafi.Unity {
                 cgrParams.chain = args.chain.chainKey;
                 cgrParams.@params = args.@params;
 
-            } catch (System.Exception) {
-                Debug.LogWarning("incorrect arguments for CallGenericReadFunction, please refer to the documentation");
+            } catch (System.Exception e) {
+                Debug.LogError("[Metafi SDK] incorrect arguments for CallGenericReadFunction, please refer to the documentation, exception = " + e.ToString());
                 return new {};
             }
             
@@ -197,7 +248,7 @@ namespace Metafi.Unity {
         }
 
         public async Task CallGenericWriteFunction(dynamic args, System.Action<dynamic> callback = null) {
-            Debug.Log("CallGenericWriteFunction");
+            Debug.Log("[Metafi SDK] CallGenericWriteFunction");
                         
             dynamic cgwParams = new ExpandoObject();
             
@@ -210,17 +261,42 @@ namespace Metafi.Unity {
                 cgwParams.functionName = args.functionName;
                 cgwParams.chain = args.chain.chainKey;
                 cgwParams.@params = args.@params;
+                cgwParams.value = args.value;
 
-            } catch (System.Exception) {
-                Debug.LogWarning("incorrect arguments for CallGenericWriteFunction, please refer to the documentation");
+            } catch (System.Exception e) {
+                Debug.LogError("[Metafi SDK] incorrect arguments for CallGenericWriteFunction, please refer to the documentation, exception = " + e.ToString());
                 return;
             }
             
             await _webViewController.InvokeSDK("CallGenericWriteFunction", cgwParams, "callback", true, callback);            
         }
+
+        public async Task CallGaslessFunction(dynamic args, System.Action<dynamic> callback = null) {
+            Debug.Log("[Metafi SDK] CallGaslessFunction");
+                        
+            dynamic cgsParams = new ExpandoObject();
+            
+            try {
+                using (StreamReader r = new StreamReader(args.functionABIPath)) {
+                    string json = r.ReadToEnd();
+                    cgsParams.functionABI = JsonConvert.DeserializeObject<dynamic>(json);
+                }
+                cgsParams.contractAddress = args.contractAddress;
+                cgsParams.functionName = args.functionName;
+                cgsParams.chain = args.chain.chainKey;
+                cgsParams.@params = args.@params;
+                cgsParams.value = args.value;
+                
+            } catch (System.Exception e) {
+                Debug.LogError("[Metafi SDK] incorrect arguments for CallGaslessFunction, please refer to the documentation, exception = " + e.ToString());
+                return;
+            }
+            
+            await _webViewController.InvokeSDK("CallGaslessFunction", cgsParams, "callback", true, callback);            
+        }
         
         public async Task Disconnect(){
-            Debug.Log("Disconnect");
+            Debug.Log("[Metafi SDK] Disconnect");
             
             await _webViewController.InvokeSDK("Disconnect", new string[] {}, "");
         }
