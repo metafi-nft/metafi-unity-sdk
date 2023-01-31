@@ -18,7 +18,7 @@ To get started with the Unity SDK, please follow the steps outlined below. If yo
 
 You can download the latest version of our unity package from our Github link. Add this to your project under the `Assets` folder.
 
-You will also need to purchase the Vuplex 3D WebView package for the relevant platform you require (Windows + Mac / iOS / Android), and place this package under the `Assets` folder of your project.
+You will also need to purchase the [Vuplex 3D WebView](https://developer.vuplex.com/webview/overview) package for the relevant platform you require (Windows + Mac / iOS / Android), and place this package under the `Assets` folder of your project.
 
 <br/>
 
